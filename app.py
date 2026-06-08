@@ -2,8 +2,23 @@ from flask import Flask, render_template, jsonify
 import yfinance as yf
 import pandas as pd
 import numpy as np
+import math
 
 app = Flask(__name__)
+
+def clean(val):
+    """Convert NaN/Inf to None so jsonify never breaks."""
+    if val is None:
+        return None
+    try:
+        if math.isnan(val) or math.isinf(val):
+            return None
+        return val
+    except (TypeError, ValueError):
+        return val
+
+def clean_list(lst):
+    return [clean(v) for v in lst]
 
 SYMBOLS = {
     "GOLD":   "GC=F",
@@ -66,27 +81,27 @@ def scan():
             n = min(60, len(data))
             candles = {
                 "dates":  dates[-n:],
-                "open":   [round(float(x), 3) for x in open_.iloc[-n:]],
-                "high":   [round(float(x), 3) for x in high.iloc[-n:]],
-                "low":    [round(float(x), 3) for x in low.iloc[-n:]],
-                "close":  [round(float(x), 3) for x in close.iloc[-n:]],
-                "sma20":  [round(float(x), 3) for x in
-                           close.rolling(20).mean().iloc[-n:]],
-                "sma50":  [round(float(x), 3) if not np.isnan(x) else None
-                           for x in close.rolling(50).mean().iloc[-n:]],
+                "open":   clean_list([round(float(x), 3) for x in open_.iloc[-n:]]),
+                "high":   clean_list([round(float(x), 3) for x in high.iloc[-n:]]),
+                "low":    clean_list([round(float(x), 3) for x in low.iloc[-n:]]),
+                "close":  clean_list([round(float(x), 3) for x in close.iloc[-n:]]),
+                "sma20":  clean_list([round(float(x), 3) for x in
+                           close.rolling(20).mean().iloc[-n:]]),
+                "sma50":  clean_list([round(float(x), 3) for x in
+                           close.rolling(50).mean().iloc[-n:]]),
             }
 
             results.append({
                 "symbol":   name,
-                "price":    round(price, 3),
-                "sma20":    round(sma20, 3),
-                "sma50":    round(sma50, 3),
+                "price":    clean(round(price, 3)),
+                "sma20":    clean(round(sma20, 3)),
+                "sma50":    clean(round(sma50, 3)),
                 "type":     signal,
-                "sl":       sl,
-                "tp":       tp,
-                "atr":      round(atr_approx, 3),
-                "score":    score,
-                "momentum": momentum,
+                "sl":       clean(sl),
+                "tp":       clean(tp),
+                "atr":      clean(round(atr_approx, 3)),
+                "score":    clean(score),
+                "momentum": clean(momentum),
                 "candles":  candles,
             })
 
