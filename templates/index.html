@@ -1,9 +1,7 @@
 <!DOCTYPE html>
 <html>
 <head>
-    <title>SMC Pro Trading Dashboard</title>
-
-    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <title>SMC Trading Dashboard</title>
 
     <style>
         body {
@@ -32,7 +30,7 @@
 
         .container {
             display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
             gap: 15px;
             padding: 20px;
         }
@@ -50,7 +48,7 @@
 
 <body>
 
-<h1>📊 SMC PRO TRADING DASHBOARD</h1>
+<h1>📊 SMC PRO DASHBOARD</h1>
 
 <button onclick="loadData()">Run Market Scan</button>
 
@@ -60,66 +58,41 @@
 
 async function loadData() {
 
-    const res = await fetch('/scan');
-    const data = await res.json();
+    try {
 
-    let html = '';
+        const res = await fetch('/scan');
+        const data = await res.json();
 
-    data.forEach(t => {
-
-        html += `
-        <div class="card">
-
-            <h2>${t.symbol}</h2>
-
-            <p>Price: ${t.price}</p>
-
-            <p class="${t.type === 'LONG' ? 'long' : 'short'}">
-                Signal: ${t.type}
-            </p>
-
-            <p>SL: ${t.sl}</p>
-            <p>TP: ${t.tp}</p>
-            <p>Risk: ${t.risk}</p>
-            <p>Score: ${t.score}</p>
-
-            <canvas id="chart-${t.symbol}" height="120"></canvas>
-
-        </div>
-        `;
-    });
-
-    document.getElementById("results").innerHTML = html;
-
-    setTimeout(() => {
+        let html = '';
 
         data.forEach(t => {
 
-            const ctx = document
-                .getElementById(`chart-${t.symbol}`)
-                .getContext("2d");
+            html += `
+            <div class="card">
 
-            new Chart(ctx, {
-                type: "line",
-                data: {
-                    labels: ["Prev", "Now"],
-                    datasets: [{
-                        data: [t.price * 0.99, t.price],
-                        borderColor: "#00ffcc",
-                        tension: 0.4,
-                        pointRadius: 3
-                    }]
-                },
-                options: {
-                    plugins: { legend: { display: false } },
-                    responsive: true
-                }
-            });
+                <h2>${t.symbol}</h2>
 
+                <p>Price: ${t.price}</p>
+
+                <p class="${t.type === 'LONG' ? 'long' : 'short'}">
+                    Signal: ${t.type}
+                </p>
+
+                <p>SL: ${t.sl}</p>
+                <p>TP: ${t.tp}</p>
+                <p>Risk: ${t.risk}</p>
+                <p>Score: ${t.score}</p>
+
+            </div>
+            `;
         });
 
-    }, 200);
+        document.getElementById("results").innerHTML = html;
 
+    } catch (err) {
+        console.log(err);
+        alert("Scan failed — check console");
+    }
 }
 
 </script>

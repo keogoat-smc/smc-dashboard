@@ -3,7 +3,7 @@ import yfinance as yf
 
 app = Flask(__name__)
 
-symbols = {
+SYMBOLS = {
     "GOLD": "GC=F",
     "GBPJPY": "GBPJPY=X",
     "USDJPY": "USDJPY=X"
@@ -19,39 +19,34 @@ def scan():
 
     results = []
 
-    for name, ticker in symbols.items():
+    for name, ticker in SYMBOLS.items():
 
         try:
-            data = yf.download(
-                ticker,
-                period="6mo",
-                interval="1d",
-                progress=False
-            )
+            data = yf.download(ticker, period="3mo", interval="1d", progress=False)
 
-            if len(data) < 50:
+            if data.empty or len(data) < 20:
                 continue
 
-            close = float(data["Close"].iloc[-1])
+            price = float(data["Close"].iloc[-1])
 
-            sma = float(data["Close"].rolling(50).mean().iloc[-1])
+            sma = float(data["Close"].rolling(20).mean().iloc[-1])
 
-            signal = "LONG" if close > sma else "SHORT"
+            signal = "LONG" if price > sma else "SHORT"
 
-            risk = close * 0.015
+            risk = round(price * 0.01, 2)
 
             results.append({
                 "symbol": name,
-                "price": round(close, 2),
+                "price": round(price, 2),
                 "type": signal,
-                "sl": round(close - risk, 2),
-                "tp": round(close + (risk * 2), 2),
-                "risk": round(risk, 2),
-                "score": round(abs(close - sma) / sma * 100, 2)
+                "sl": round(price - risk, 2),
+                "tp": round(price + (risk * 2), 2),
+                "risk": risk,
+                "score": round(abs(price - sma), 2)
             })
 
         except Exception as e:
-            print(f"{name} error:", e)
+            print(f"Error {name}: {e}")
 
     return jsonify(results)
 
