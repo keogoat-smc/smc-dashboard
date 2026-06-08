@@ -1,101 +1,650 @@
 <!DOCTYPE html>
-<html>
+<html lang="en">
 <head>
-    <title>SMC Trading Dashboard</title>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>SMC PRO TERMINAL</title>
+<link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@300;400;600;700&family=Syne:wght@400;700;800&display=swap" rel="stylesheet"/>
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/chartjs-chart-financial@0.1.1/dist/chartjs-chart-financial.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/luxon@3.4.4/build/global/luxon.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/chartjs-adapter-luxon@1.3.1/dist/chartjs-adapter-luxon.umd.min.js"></script>
 
-    <style>
-        body {
-            margin: 0;
-            font-family: Arial;
-            background: #0b0f19;
-            color: white;
-        }
+<style>
+  :root {
+    --bg:       #070b12;
+    --panel:    #0d1421;
+    --border:   #1a2540;
+    --gold:     #f0b429;
+    --green:    #00e5a0;
+    --red:      #ff3d6b;
+    --blue:     #3b9eff;
+    --muted:    #4a5878;
+    --text:     #c8d6f0;
+    --bright:   #eaf2ff;
+  }
 
-        h1 {
-            text-align: center;
-            color: #00ffcc;
-            padding: 20px;
-        }
+  * { margin:0; padding:0; box-sizing:border-box; }
 
-        button {
-            display: block;
-            margin: 10px auto;
-            padding: 12px 20px;
-            background: #00ffcc;
-            border: none;
-            border-radius: 8px;
-            font-weight: bold;
-            cursor: pointer;
-        }
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: 'JetBrains Mono', monospace;
+    min-height: 100vh;
+    overflow-x: hidden;
+  }
 
-        .container {
-            display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
-            gap: 15px;
-            padding: 20px;
-        }
+  /* ── scanlines effect ── */
+  body::before {
+    content: '';
+    position: fixed; inset: 0;
+    background: repeating-linear-gradient(
+      0deg,
+      transparent,
+      transparent 2px,
+      rgba(0,0,0,0.03) 2px,
+      rgba(0,0,0,0.03) 4px
+    );
+    pointer-events: none;
+    z-index: 999;
+  }
 
-        .card {
-            background: #111827;
-            border-radius: 12px;
-            padding: 15px;
-        }
+  /* ── header ── */
+  header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 18px 32px;
+    border-bottom: 1px solid var(--border);
+    background: var(--panel);
+    position: sticky; top: 0; z-index: 100;
+  }
 
-        .long { color: #00ff88; }
-        .short { color: #ff4d4d; }
-    </style>
+  .logo {
+    font-family: 'Syne', sans-serif;
+    font-weight: 800;
+    font-size: 1.3rem;
+    color: var(--bright);
+    letter-spacing: 0.05em;
+  }
+  .logo span { color: var(--gold); }
+
+  .header-meta {
+    font-size: 0.7rem;
+    color: var(--muted);
+    text-align: right;
+    line-height: 1.6;
+  }
+
+  #clock { color: var(--gold); }
+
+  /* ── scan button ── */
+  #scanBtn {
+    background: transparent;
+    border: 1px solid var(--gold);
+    color: var(--gold);
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.8rem;
+    font-weight: 700;
+    padding: 10px 24px;
+    border-radius: 4px;
+    cursor: pointer;
+    letter-spacing: 0.15em;
+    text-transform: uppercase;
+    transition: all 0.2s;
+    position: relative;
+    overflow: hidden;
+  }
+  #scanBtn:hover {
+    background: var(--gold);
+    color: var(--bg);
+    box-shadow: 0 0 20px rgba(240,180,41,0.4);
+  }
+  #scanBtn.loading {
+    opacity: 0.6;
+    pointer-events: none;
+  }
+  #scanBtn.loading::after {
+    content: '';
+    position: absolute;
+    bottom: 0; left: -100%;
+    width: 100%; height: 2px;
+    background: var(--gold);
+    animation: slide 1s linear infinite;
+  }
+  @keyframes slide { to { left: 100%; } }
+
+  /* ── status bar ── */
+  #statusBar {
+    padding: 8px 32px;
+    background: rgba(13,20,33,0.8);
+    border-bottom: 1px solid var(--border);
+    font-size: 0.65rem;
+    color: var(--muted);
+    display: flex;
+    gap: 24px;
+    align-items: center;
+  }
+  .status-dot {
+    width: 6px; height: 6px;
+    border-radius: 50%;
+    background: var(--muted);
+    display: inline-block;
+    margin-right: 6px;
+  }
+  .status-dot.live { background: var(--green); box-shadow: 0 0 6px var(--green); }
+
+  /* ── main grid ── */
+  main {
+    padding: 24px 32px;
+    display: flex;
+    flex-direction: column;
+    gap: 24px;
+  }
+
+  /* ── summary strip ── */
+  #summary {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 12px;
+  }
+
+  .sum-card {
+    background: var(--panel);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 16px 20px;
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    opacity: 0;
+    transform: translateY(10px);
+    transition: opacity 0.4s, transform 0.4s;
+  }
+  .sum-card.visible { opacity: 1; transform: translateY(0); }
+
+  .sum-icon {
+    font-size: 1.6rem;
+    width: 44px;
+    text-align: center;
+  }
+  .sum-label {
+    font-size: 0.65rem;
+    color: var(--muted);
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
+    margin-bottom: 4px;
+  }
+  .sum-value {
+    font-family: 'Syne', sans-serif;
+    font-size: 1.4rem;
+    font-weight: 800;
+    color: var(--bright);
+  }
+
+  /* ── cards ── */
+  #cards {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(520px, 1fr));
+    gap: 20px;
+  }
+
+  .card {
+    background: var(--panel);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    overflow: hidden;
+    opacity: 0;
+    transform: translateY(20px);
+    transition: opacity 0.5s, transform 0.5s, border-color 0.3s;
+  }
+  .card.visible { opacity: 1; transform: translateY(0); }
+  .card:hover { border-color: var(--gold); }
+
+  .card-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 16px 20px;
+    border-bottom: 1px solid var(--border);
+  }
+
+  .card-symbol {
+    font-family: 'Syne', sans-serif;
+    font-size: 1.2rem;
+    font-weight: 800;
+    color: var(--bright);
+  }
+
+  .badge {
+    font-size: 0.7rem;
+    font-weight: 700;
+    padding: 4px 12px;
+    border-radius: 3px;
+    letter-spacing: 0.15em;
+    text-transform: uppercase;
+  }
+  .badge.long  { background: rgba(0,229,160,0.15); color: var(--green); border: 1px solid rgba(0,229,160,0.4); }
+  .badge.short { background: rgba(255,61,107,0.15); color: var(--red);   border: 1px solid rgba(255,61,107,0.4); }
+
+  /* ── chart ── */
+  .chart-wrap {
+    padding: 16px 20px 8px;
+    height: 220px;
+    position: relative;
+  }
+
+  /* ── stats grid ── */
+  .stats {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    border-top: 1px solid var(--border);
+  }
+
+  .stat {
+    padding: 14px 16px;
+    border-right: 1px solid var(--border);
+  }
+  .stat:last-child { border-right: none; }
+
+  .stat-label {
+    font-size: 0.6rem;
+    color: var(--muted);
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
+    margin-bottom: 5px;
+  }
+  .stat-value {
+    font-size: 0.9rem;
+    font-weight: 700;
+    color: var(--bright);
+  }
+  .stat-value.green { color: var(--green); }
+  .stat-value.red   { color: var(--red); }
+  .stat-value.gold  { color: var(--gold); }
+
+  /* ── signal bar ── */
+  .signal-bar {
+    padding: 10px 20px;
+    border-top: 1px solid var(--border);
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    font-size: 0.7rem;
+    color: var(--muted);
+  }
+
+  .signal-line {
+    flex: 1;
+    height: 3px;
+    background: var(--border);
+    border-radius: 2px;
+    overflow: hidden;
+  }
+  .signal-fill {
+    height: 100%;
+    border-radius: 2px;
+    transition: width 1s ease;
+  }
+
+  /* ── empty state ── */
+  #empty {
+    text-align: center;
+    padding: 80px 20px;
+    color: var(--muted);
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 16px;
+  }
+  #empty .big { font-size: 3rem; }
+  #empty p { font-size: 0.8rem; line-height: 1.6; max-width: 300px; }
+
+  /* ── error toast ── */
+  #toast {
+    position: fixed;
+    bottom: 24px; right: 24px;
+    background: rgba(255,61,107,0.15);
+    border: 1px solid var(--red);
+    color: var(--red);
+    padding: 12px 20px;
+    border-radius: 6px;
+    font-size: 0.75rem;
+    display: none;
+    z-index: 200;
+  }
+
+  @media (max-width: 640px) {
+    header { padding: 14px 16px; }
+    main { padding: 16px; }
+    #summary { grid-template-columns: 1fr; }
+    #cards { grid-template-columns: 1fr; }
+    .stats { grid-template-columns: repeat(2,1fr); }
+    .stat:nth-child(2) { border-right: none; }
+    .stat:nth-child(3) { border-right: 1px solid var(--border); }
+  }
+</style>
 </head>
 
 <body>
 
-<h1>📊 SMC PRO DASHBOARD</h1>
+<header>
+  <div class="logo">SMC <span>PRO</span> TERMINAL</div>
+  <button id="scanBtn" onclick="runScan()">⚡ RUN SCAN</button>
+  <div class="header-meta">
+    <div id="clock">--:--:--</div>
+    <div>GOLD · GBPJPY · USDJPY</div>
+  </div>
+</header>
 
-<button onclick="loadData()">Run Market Scan</button>
+<div id="statusBar">
+  <span><span class="status-dot" id="dot"></span><span id="statusText">IDLE — press RUN SCAN</span></span>
+  <span id="lastScan"></span>
+</div>
 
-<div class="container" id="results"></div>
+<main>
+  <div id="summary"></div>
+  <div id="cards">
+    <div id="empty">
+      <div class="big">📡</div>
+      <p>Press <strong style="color:var(--gold)">RUN SCAN</strong> to fetch live market data and generate signals.</p>
+    </div>
+  </div>
+</main>
+
+<div id="toast"></div>
 
 <script>
+// ── clock ──────────────────────────────────────────────────────────────────
+function updateClock() {
+  const now = new Date();
+  document.getElementById('clock').textContent =
+    now.toUTCString().slice(17, 25) + ' UTC';
+}
+setInterval(updateClock, 1000); updateClock();
 
-async function loadData() {
+// ── chart instances (to destroy on re-render) ────────────────────────────
+const chartInstances = {};
 
-    try {
-
-        const res = await fetch('/scan');
-        const data = await res.json();
-
-        let html = '';
-
-        data.forEach(t => {
-
-            html += `
-            <div class="card">
-
-                <h2>${t.symbol}</h2>
-
-                <p>Price: ${t.price}</p>
-
-                <p class="${t.type === 'LONG' ? 'long' : 'short'}">
-                    Signal: ${t.type}
-                </p>
-
-                <p>SL: ${t.sl}</p>
-                <p>TP: ${t.tp}</p>
-                <p>Risk: ${t.risk}</p>
-                <p>Score: ${t.score}</p>
-
-            </div>
-            `;
-        });
-
-        document.getElementById("results").innerHTML = html;
-
-    } catch (err) {
-        console.log(err);
-        alert("Scan failed — check console");
-    }
+// ── toast ──────────────────────────────────────────────────────────────────
+function showToast(msg) {
+  const t = document.getElementById('toast');
+  t.textContent = msg; t.style.display = 'block';
+  setTimeout(() => t.style.display = 'none', 4000);
 }
 
-</script>
+// ── status ─────────────────────────────────────────────────────────────────
+function setStatus(state, text) {
+  const dot = document.getElementById('dot');
+  const st  = document.getElementById('statusText');
+  dot.className = 'status-dot' + (state === 'live' ? ' live' : '');
+  st.textContent = text;
+}
 
+// ── main scan ──────────────────────────────────────────────────────────────
+async function runScan() {
+  const btn = document.getElementById('scanBtn');
+  btn.classList.add('loading');
+  btn.textContent = '⏳ SCANNING...';
+  setStatus('', 'FETCHING LIVE DATA...');
+  document.getElementById('empty').style.display = 'none';
+
+  try {
+    const res  = await fetch('/scan');
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    const data = await res.json();
+
+    if (!data.length) throw new Error('No data returned');
+
+    renderSummary(data);
+    renderCards(data);
+
+    const now = new Date().toLocaleTimeString();
+    document.getElementById('lastScan').textContent = `Last scan: ${now}`;
+    setStatus('live', `LIVE — ${data.length} symbols loaded`);
+
+  } catch (err) {
+    setStatus('', 'ERROR — scan failed');
+    showToast('Scan failed: ' + err.message);
+    console.error(err);
+  } finally {
+    btn.classList.remove('loading');
+    btn.textContent = '⚡ RUN SCAN';
+  }
+}
+
+// ── summary strip ──────────────────────────────────────────────────────────
+function renderSummary(data) {
+  const longs  = data.filter(d => d.type === 'LONG').length;
+  const shorts = data.filter(d => d.type === 'SHORT').length;
+  const avgScore = (data.reduce((a,b) => a + b.score, 0) / data.length).toFixed(2);
+
+  const items = [
+    { icon: '📈', label: 'Long Signals',  value: longs,    color: 'var(--green)' },
+    { icon: '📉', label: 'Short Signals', value: shorts,   color: 'var(--red)'   },
+    { icon: '⚡', label: 'Avg Score',     value: avgScore + '%', color: 'var(--gold)' },
+  ];
+
+  document.getElementById('summary').innerHTML = items.map((it, i) => `
+    <div class="sum-card" style="transition-delay:${i*0.1}s">
+      <div class="sum-icon">${it.icon}</div>
+      <div>
+        <div class="sum-label">${it.label}</div>
+        <div class="sum-value" style="color:${it.color}">${it.value}</div>
+      </div>
+    </div>
+  `).join('');
+
+  requestAnimationFrame(() => {
+    document.querySelectorAll('.sum-card').forEach(el => el.classList.add('visible'));
+  });
+}
+
+// ── cards ──────────────────────────────────────────────────────────────────
+function renderCards(data) {
+  const container = document.getElementById('cards');
+  // destroy old charts
+  Object.values(chartInstances).forEach(c => c.destroy());
+
+  container.innerHTML = data.map((t, i) => {
+    const isLong = t.type === 'LONG';
+    const momPos = t.momentum >= 0;
+    const scoreColor = t.score > 1.5 ? 'gold' : t.score > 0.5 ? 'green' : '';
+    const signalWidth = Math.min(t.score * 15, 100);
+    const signalColor = isLong ? 'var(--green)' : 'var(--red)';
+
+    return `
+    <div class="card" id="card-${t.symbol}" style="transition-delay:${i*0.15}s">
+      <div class="card-header">
+        <div>
+          <div class="card-symbol">${t.symbol}</div>
+          <div style="font-size:0.65rem;color:var(--muted);margin-top:3px">
+            SMA20: ${t.sma20} &nbsp;|&nbsp; SMA50: ${t.sma50}
+          </div>
+        </div>
+        <div style="display:flex;align-items:center;gap:10px">
+          <div style="text-align:right;font-size:0.7rem;color:var(--muted)">
+            <div style="font-size:1rem;font-weight:700;color:var(--bright)">${t.price}</div>
+            <div style="color:${momPos?'var(--green)':'var(--red)'}">
+              ${momPos?'▲':'▼'} ${Math.abs(t.momentum)}%
+            </div>
+          </div>
+          <span class="badge ${isLong?'long':'short'}">${t.type}</span>
+        </div>
+      </div>
+
+      <div class="chart-wrap">
+        <canvas id="chart-${t.symbol}"></canvas>
+      </div>
+
+      <div class="signal-bar">
+        <span>SIGNAL STRENGTH</span>
+        <div class="signal-line">
+          <div class="signal-fill" id="sf-${t.symbol}"
+               style="width:0%;background:${signalColor}"></div>
+        </div>
+        <span class="${scoreColor}" style="min-width:40px;text-align:right">${t.score}%</span>
+      </div>
+
+      <div class="stats">
+        <div class="stat">
+          <div class="stat-label">Stop Loss</div>
+          <div class="stat-value red">${t.sl}</div>
+        </div>
+        <div class="stat">
+          <div class="stat-label">Take Profit</div>
+          <div class="stat-value green">${t.tp}</div>
+        </div>
+        <div class="stat">
+          <div class="stat-label">ATR</div>
+          <div class="stat-value">${t.atr}</div>
+        </div>
+        <div class="stat">
+          <div class="stat-label">Score</div>
+          <div class="stat-value ${scoreColor}">${t.score}%</div>
+        </div>
+      </div>
+    </div>`;
+  }).join('');
+
+  // animate in
+  requestAnimationFrame(() => {
+    document.querySelectorAll('.card').forEach(el => el.classList.add('visible'));
+    // animate signal bars
+    data.forEach(t => {
+      const sf = document.getElementById(`sf-${t.symbol}`);
+      if (sf) setTimeout(() => sf.style.width = Math.min(t.score*15,100)+'%', 300);
+    });
+    // draw charts after DOM is ready
+    data.forEach(t => buildChart(t));
+  });
+}
+
+// ── candlestick chart ──────────────────────────────────────────────────────
+function buildChart(t) {
+  const canvas = document.getElementById(`chart-${t.symbol}`);
+  if (!canvas) return;
+  const ctx = canvas.getContext('2d');
+
+  // destroy previous instance
+  if (chartInstances[t.symbol]) chartInstances[t.symbol].destroy();
+
+  const c = t.candles;
+  const isLong = t.type === 'LONG';
+  const accentColor = isLong ? '#00e5a0' : '#ff3d6b';
+
+  // build OHLC dataset
+  const ohlcData = c.dates.map((d, i) => ({
+    x: new Date(d).getTime(),
+    o: c.open[i], h: c.high[i], l: c.low[i], cl: c.close[i]
+  }));
+
+  // SMA20
+  const sma20Data = c.dates.map((d, i) => ({
+    x: new Date(d).getTime(), y: c.sma20[i]
+  })).filter(p => p.y != null);
+
+  // SMA50
+  const sma50Data = c.dates.map((d, i) => ({
+    x: new Date(d).getTime(), y: c.sma50[i]
+  })).filter(p => p.y != null);
+
+  chartInstances[t.symbol] = new Chart(ctx, {
+    type: 'candlestick',
+    data: {
+      datasets: [
+        {
+          label: t.symbol,
+          data: ohlcData,
+          color: {
+            up:   '#00e5a0',
+            down: '#ff3d6b',
+            unchanged: '#4a5878',
+          },
+          borderColor: {
+            up:   '#00e5a0',
+            down: '#ff3d6b',
+            unchanged: '#4a5878',
+          },
+        },
+        {
+          type: 'line',
+          label: 'SMA20',
+          data: sma20Data,
+          borderColor: '#f0b429',
+          borderWidth: 1.5,
+          pointRadius: 0,
+          tension: 0.3,
+          yAxisID: 'y',
+        },
+        {
+          type: 'line',
+          label: 'SMA50',
+          data: sma50Data,
+          borderColor: '#3b9eff',
+          borderWidth: 1.5,
+          pointRadius: 0,
+          tension: 0.3,
+          yAxisID: 'y',
+        },
+      ]
+    },
+    options: {
+      responsive: true,
+      maintainAspectRatio: false,
+      animation: { duration: 600 },
+      plugins: {
+        legend: {
+          display: true,
+          labels: {
+            color: '#4a5878',
+            font: { family: 'JetBrains Mono', size: 9 },
+            boxWidth: 12,
+            padding: 10,
+          }
+        },
+        tooltip: {
+          backgroundColor: '#0d1421',
+          borderColor: '#1a2540',
+          borderWidth: 1,
+          titleColor: '#eaf2ff',
+          bodyColor: '#c8d6f0',
+          titleFont: { family: 'JetBrains Mono', size: 10 },
+          bodyFont:  { family: 'JetBrains Mono', size: 10 },
+          callbacks: {
+            label: (ctx) => {
+              const d = ctx.raw;
+              if (d && d.o !== undefined)
+                return ` O:${d.o} H:${d.h} L:${d.l} C:${d.cl}`;
+              return ` ${ctx.parsed.y}`;
+            }
+          }
+        }
+      },
+      scales: {
+        x: {
+          type: 'time',
+          time: { unit: 'week' },
+          ticks: {
+            color: '#4a5878',
+            font: { family: 'JetBrains Mono', size: 8 },
+            maxTicksLimit: 8,
+          },
+          grid: { color: '#0f1a2e' },
+        },
+        y: {
+          position: 'right',
+          ticks: {
+            color: '#4a5878',
+            font: { family: 'JetBrains Mono', size: 8 },
+            maxTicksLimit: 6,
+          },
+          grid: { color: '#0f1a2e' },
+        }
+      }
+    }
+  });
+}
+</script>
 </body>
 </html>
