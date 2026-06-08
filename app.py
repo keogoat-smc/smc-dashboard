@@ -3,18 +3,19 @@ import yfinance as yf
 
 app = Flask(__name__)
 
+symbols = {
+    "GOLD": "GC=F",
+    "GBPJPY": "GBPJPY=X",
+    "USDJPY": "USDJPY=X"
+}
+
 @app.route("/")
 def home():
     return render_template("index.html")
 
+
 @app.route("/scan")
 def scan():
-
-    symbols = {
-        "GOLD": "GC=F",
-        "GBPJPY": "GBPJPY=X",
-        "USDJPY": "USDJPY=X"
-    }
 
     results = []
 
@@ -23,44 +24,37 @@ def scan():
         try:
             data = yf.download(
                 ticker,
-                period="1y",
+                period="6mo",
                 interval="1d",
-                progress=False,
-                auto_adjust=True
+                progress=False
             )
 
-            if len(data) < 200:
+            if len(data) < 50:
                 continue
 
             close = float(data["Close"].iloc[-1])
 
-            sma200 = float(
-                data["Close"]
-                .rolling(200)
-                .mean()
-                .iloc[-1]
-            )
+            sma = float(data["Close"].rolling(50).mean().iloc[-1])
 
-            signal = "LONG" if close > sma200 else "SHORT"
+            signal = "LONG" if close > sma else "SHORT"
 
-            risk_distance = close * 0.018
-
-            score = 75
+            risk = close * 0.015
 
             results.append({
                 "symbol": name,
                 "price": round(close, 2),
                 "type": signal,
-                "sl": round(close - risk_distance, 2),
-                "tp": round(close + (risk_distance * 2), 2),
-                "risk": 3.00,
-                "score": score
+                "sl": round(close - risk, 2),
+                "tp": round(close + (risk * 2), 2),
+                "risk": round(risk, 2),
+                "score": round(abs(close - sma) / sma * 100, 2)
             })
 
         except Exception as e:
-            print(f"{name}: {e}")
+            print(f"{name} error:", e)
 
     return jsonify(results)
+
 
 if __name__ == "__main__":
     app.run(debug=True)

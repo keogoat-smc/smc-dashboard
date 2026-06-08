@@ -3,10 +3,12 @@
 <head>
     <title>SMC Pro Trading Dashboard</title>
 
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+
     <style>
         body {
             margin: 0;
-            font-family: Arial, sans-serif;
+            font-family: Arial;
             background: #0b0f19;
             color: white;
         }
@@ -19,45 +21,33 @@
 
         button {
             display: block;
-            margin: 20px auto;
-            padding: 12px 24px;
+            margin: 10px auto;
+            padding: 12px 20px;
+            background: #00ffcc;
             border: none;
             border-radius: 8px;
-            background: #00ffcc;
-            cursor: pointer;
             font-weight: bold;
+            cursor: pointer;
         }
 
         .container {
             display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(350px, 1fr));
-            gap: 20px;
+            grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+            gap: 15px;
             padding: 20px;
         }
 
         .card {
             background: #111827;
-            border: 1px solid #1f2937;
             border-radius: 12px;
             padding: 15px;
         }
 
-        .long {
-            color: #00ff88;
-            font-weight: bold;
-        }
-
-        .short {
-            color: #ff4d4d;
-            font-weight: bold;
-        }
-
-        iframe {
-            margin-top: 15px;
-            border-radius: 8px;
-        }
+        .long { color: #00ff88; }
+        .short { color: #ff4d4d; }
     </style>
 </head>
+
 <body>
 
 <h1>📊 SMC PRO TRADING DASHBOARD</h1>
@@ -68,12 +58,6 @@
 
 <script>
 
-const symbolMap = {
-    "GOLD": "OANDA:XAUUSD",
-    "GBPJPY": "OANDA:GBPJPY",
-    "USDJPY": "OANDA:USDJPY"
-};
-
 async function loadData() {
 
     const res = await fetch('/scan');
@@ -83,9 +67,6 @@ async function loadData() {
 
     data.forEach(t => {
 
-        const tvSymbol =
-            symbolMap[t.symbol] || "OANDA:XAUUSD";
-
         html += `
         <div class="card">
 
@@ -93,30 +74,52 @@ async function loadData() {
 
             <p>Price: ${t.price}</p>
 
-            <p class="${
-                t.type === 'SHORT'
-                    ? 'short'
-                    : 'long'
-            }">
+            <p class="${t.type === 'LONG' ? 'long' : 'short'}">
                 Signal: ${t.type}
             </p>
 
             <p>SL: ${t.sl}</p>
             <p>TP: ${t.tp}</p>
-            <p>Risk: $${t.risk}</p>
+            <p>Risk: ${t.risk}</p>
             <p>Score: ${t.score}</p>
 
-            <iframe
-                src="https://s.tradingview.com/widgetembed/?symbol=${tvSymbol}&interval=D&theme=dark"
-                width="100%"
-                height="260">
-            </iframe>
+            <canvas id="chart-${t.symbol}" height="120"></canvas>
 
         </div>
         `;
     });
 
-    document.getElementById('results').innerHTML = html;
+    document.getElementById("results").innerHTML = html;
+
+    setTimeout(() => {
+
+        data.forEach(t => {
+
+            const ctx = document
+                .getElementById(`chart-${t.symbol}`)
+                .getContext("2d");
+
+            new Chart(ctx, {
+                type: "line",
+                data: {
+                    labels: ["Prev", "Now"],
+                    datasets: [{
+                        data: [t.price * 0.99, t.price],
+                        borderColor: "#00ffcc",
+                        tension: 0.4,
+                        pointRadius: 3
+                    }]
+                },
+                options: {
+                    plugins: { legend: { display: false } },
+                    responsive: true
+                }
+            });
+
+        });
+
+    }, 200);
+
 }
 
 </script>
