@@ -1,14 +1,87 @@
 <!DOCTYPE html>
 <html>
 <head>
-    <title>SMC Dashboard</title>
-</head>
-<body style="background:#0f172a;color:white;font-family:Arial;">
-    <h1>🔥 SMC Trading Dashboard</h1>
-    <p>Your website is running successfully.</p>
+    <title>SMC Trading Dashboard</title>
+    <style>
+        body {
+            margin: 0;
+            font-family: Arial;
+            background: #0b0f19;
+            color: white;
+        }
 
-    <button onclick="fetch('/scan').then(r=>r.json()).then(d=>alert(JSON.stringify(d)))">
-        Test Scan
-    </button>
+        h1 {
+            text-align: center;
+            padding: 20px;
+            color: #00ffcc;
+        }
+
+        .container {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+            gap: 20px;
+            padding: 20px;
+        }
+
+        .card {
+            background: #111827;
+            padding: 15px;
+            border-radius: 12px;
+            border: 1px solid #1f2937;
+        }
+
+        .long {
+            color: #00ff88;
+        }
+
+        .short {
+            color: #ff4d4d;
+        }
+
+        button {
+            display: block;
+            margin: 20px auto;
+            padding: 10px 20px;
+            background: #00ffcc;
+            border: none;
+            cursor: pointer;
+            border-radius: 8px;
+            font-weight: bold;
+        }
+    </style>
+</head>
+
+<body>
+
+<h1>📊 SMC PRO TRADING DASHBOARD</h1>
+
+<button onclick="loadData()">Run Market Scan</button>
+
+<div class="container" id="results"></div>
+
+<script>
+async function loadData() {
+    const res = await fetch('/scan');
+    const data = await res.json();
+
+    let html = '';
+
+    data.forEach(t => {
+        html += `
+        <div class="card">
+            <h2>${t.symbol}</h2>
+            <p>Price: ${t.price}</p>
+            <p class="long">Signal: ${t.type}</p>
+            <p>SL: ${t.sl}</p>
+            <p>TP: ${t.tp}</p>
+            <p>Risk: $${t.risk.toFixed(2)}</p>
+        </div>
+        `;
+    });
+
+    document.getElementById('results').innerHTML = html;
+}
+</script>
+
 </body>
 </html>
